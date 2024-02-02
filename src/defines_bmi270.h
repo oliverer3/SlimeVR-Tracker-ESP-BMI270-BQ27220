@@ -36,8 +36,8 @@
 // If only 1 out of 2 trackers has a mag, tracker without a mag should still function normally.
 // NOT USED if USE_6_AXIS == true
 // Pick one:
-#define BMI270_MAG_TYPE BMI270_MAG_TYPE_HMC
-// #define BMI270_MAG_TYPE BMI270_MAG_TYPE_QMC
+// #define BMI270_MAG_TYPE BMI270_MAG_TYPE_HMC
+#define BMI270_MAG_TYPE BMI270_MAG_TYPE_QMC
 
 // Use VQF instead of mahony sensor fusion.
 // Features: rest bias estimation, magnetic distortion rejection.

@@ -29,6 +29,7 @@ ADC_MODE(ADC_VCC);
 
 void BatteryMonitor::Setup()
 {
+    
 #if BATTERY_MONITOR == BAT_MCP3021 || BATTERY_MONITOR == BAT_INTERNAL_MCP3021
     for (uint8_t i = 0x48; i < 0x4F; i++)
     {
@@ -42,12 +43,29 @@ void BatteryMonitor::Setup()
     {
         m_Logger.error("MCP3021 not found on I2C bus");
     }
+#elif BATTERY_MONITOR == BAT_BQ27220
+    int address = 0;
+    for (uint8_t i = 0x6A; i < 0xFE; i++)
+    {
+        if (I2CSCAN::hasDevOnBus(i))
+        {
+            address = i;
+            Serial.print("Device found at: ");
+            Serial.println(address);
+            break;
+        }
+    }
+    if (address == 0)
+    {
+        m_Logger.error("BQ27220 not found on I2C bus");
+    }
+
 #endif
 }
 
 void BatteryMonitor::Loop()
 {
-    #if BATTERY_MONITOR == BAT_EXTERNAL || BATTERY_MONITOR == BAT_INTERNAL || BATTERY_MONITOR == BAT_MCP3021 || BATTERY_MONITOR == BAT_INTERNAL_MCP3021
+    #if BATTERY_MONITOR == BAT_EXTERNAL || BATTERY_MONITOR == BAT_INTERNAL || BATTERY_MONITOR == BAT_MCP3021 || BATTERY_MONITOR == BAT_INTERNAL_MCP3021 || BAT_MONITOR == BAT_BQ27220
         auto now_ms = millis();
         if (now_ms - last_battery_sample >= batterySampleRate)
         {
@@ -96,6 +114,23 @@ void BatteryMonitor::Loop()
                     }
                 }
             #endif
+            #if BATTERY_MONITOR == BAT_BQ27220
+            if (address > 0){
+                    Wire.beginTransmission(address);
+                    Wire.requestFrom(address, (uint8_t)2);
+                    auto MSB = Wire.read();
+                    auto LSB = Wire.read();
+                    auto status = Wire.endTransmission();
+
+                    if(status == 0){
+                        float v = (((uint16_t)(MSB & 0x0F) << 6) | (uint16_t)(LSB >> 2));
+                        voltage = (voltage > 0) ? min(voltage, v) : v;
+
+                    }
+            }
+
+            #endif
+
             if (voltage > 0) //valid measurement
             {
                 // Estimate battery level, 3.2V is 0%, 4.17V is 100% (1.0)
