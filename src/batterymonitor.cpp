@@ -44,28 +44,24 @@ void BatteryMonitor::Setup()
         m_Logger.error("MCP3021 not found on I2C bus");
     }
 #elif BATTERY_MONITOR == BAT_BQ27220
-    int address = 0;
-    for (uint8_t i = 0x6A; i < 0xFE; i++)
-    {
-        if (I2CSCAN::hasDevOnBus(i))
+    if (I2CSCAN::hasDevOnBus(0x55))
         {
-            address = i;
-            Serial.print("Device found at: ");
+            address = 0x55;
+            Serial.print("BQ27220 found at: ");
             Serial.println(address);
-            break;
+            
+        }else  
+        {
+            m_Logger.error("BQ27220 not found on I2C bus");
+        
         }
-    }
-    if (address == 0)
-    {
-        m_Logger.error("BQ27220 not found on I2C bus");
-    }
 
 #endif
 }
 
 void BatteryMonitor::Loop()
 {
-    #if BATTERY_MONITOR == BAT_EXTERNAL || BATTERY_MONITOR == BAT_INTERNAL || BATTERY_MONITOR == BAT_MCP3021 || BATTERY_MONITOR == BAT_INTERNAL_MCP3021 || BAT_MONITOR == BAT_BQ27220
+    #if BATTERY_MONITOR == BAT_EXTERNAL || BATTERY_MONITOR == BAT_INTERNAL || BATTERY_MONITOR == BAT_MCP3021 || BATTERY_MONITOR == BAT_INTERNAL_MCP3021 || BATTERY_MONITOR == BAT_BQ27220
         auto now_ms = millis();
         if (now_ms - last_battery_sample >= batterySampleRate)
         {
@@ -117,16 +113,25 @@ void BatteryMonitor::Loop()
             #if BATTERY_MONITOR == BAT_BQ27220
             if (address > 0){
                     Wire.beginTransmission(address);
-                    Wire.requestFrom(address, (uint8_t)2);
-                    auto MSB = Wire.read();
-                    auto LSB = Wire.read();
+                    Wire.write(0x08);
+                    Wire.write(0x09);
                     auto status = Wire.endTransmission();
+                    
+                    
+                    Wire.requestFrom(address, (uint8_t)2);
 
-                    if(status == 0){
-                        float v = (((uint16_t)(MSB & 0x0F) << 6) | (uint16_t)(LSB >> 2));
+                    if(Wire.available()<=2){
+                        auto MSB = Wire.read();
+                        auto LSB = Wire.read();
+                        uint16_t voltageRegister = ((LSB<<8) + (MSB));
+                        float v = voltageRegister/1000.0f;
+
+
                         voltage = (voltage > 0) ? min(voltage, v) : v;
 
                     }
+                    
+            }
             }
 
             #endif
@@ -167,4 +172,4 @@ void BatteryMonitor::Loop()
             }
         }
     #endif
-}
+
