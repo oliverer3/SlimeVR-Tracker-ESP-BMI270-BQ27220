@@ -112,6 +112,7 @@ void BatteryMonitor::Loop()
             #endif
             #if BATTERY_MONITOR == BAT_BQ27220
             if (address > 0){
+                    //Get battery voltage
                     Wire.beginTransmission(address);
                     Wire.write(0x08);
                     Wire.write(0x09);
@@ -125,10 +126,25 @@ void BatteryMonitor::Loop()
                         auto LSB = Wire.read();
                         uint16_t voltageRegister = ((LSB<<8) + (MSB));
                         float v = voltageRegister/1000.0f;
-
-
                         voltage = (voltage > 0) ? min(voltage, v) : v;
+                    }
 
+                    //Get battery state of charg
+                    Wire.beginTransmission(address);
+                    Wire.write(0x2C);
+                    Wire.write(0x2D);
+                    status = Wire.endTransmission();
+                    
+                    
+                    Wire.requestFrom(address, (uint8_t)2);
+
+                    if(Wire.available()<=2){
+                        auto MSB = Wire.read();
+                        auto LSB = Wire.read();
+                        uint16_t SoCRegister = ((LSB<<8) + (MSB));
+                        level = SoCRegister/100.0f;
+                        Serial.print("SoC Register: ");
+                        Serial.println(level);
                     }
                     
             }
@@ -138,6 +154,7 @@ void BatteryMonitor::Loop()
 
             if (voltage > 0) //valid measurement
             {
+                #if BATTERY_MONITOR != BAT_BQ27220
                 // Estimate battery level, 3.2V is 0%, 4.17V is 100% (1.0)
                 if (voltage > 3.975f)
                     level = (voltage - 2.920f) * 0.8f;
@@ -151,6 +168,11 @@ void BatteryMonitor::Loop()
                     level = (voltage - 3.200f) * 0.3f;
 
                 level = (level - 0.05f) / 0.95f; // Cut off the last 5% (3.36V)
+                //#elif BATTERY_MONITOR == BAT_BQ27220
+
+
+                #endif
+
 
                 if (level > 1)
                     level = 1;
